@@ -18,7 +18,7 @@ include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 link_directories(${LLVM_LIBRARY_DIRS})
 
-add_executable(rocky src/test.c)
+add_executable(rocky src/main.c)
 if(WIN32)
     target_link_libraries(rocky LLVM-C)
 else()
