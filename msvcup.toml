@@ -1,0 +1,7 @@
+[msvcup]
+lock_file = "msvcup.lock"
+target_arch = "x64"
+
+[packages]
+msvc = "14.44.17.14"
+sdk = "10.0.22621.7"

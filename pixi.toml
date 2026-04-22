@@ -1,23 +1,21 @@
 [workspace]
 authors = ["Soham Karandikar <sohamk10@gmail.com>"]
-channels = ["conda-forge"]
+channels = ["conda-forge", "https://prefix.dev/automsvc"]
 name = "rocky"
 platforms = ["linux-64", "win-64"]
 version = "0.1.0"
 
 # Linux uses LLVM Clang
 [target.linux-64.tasks]
-configure = "cmake -S . -B build -G \"Unix Makefiles\" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_COMPILER=$CONDA_PREFIX/bin/clang -DCMAKE_CXX_COMPILER=$CONDA_PREFIX/bin/clang++-22"
+configure = "cmake -S . -B build -G \"Ninja\" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_COMPILER=$CONDA_PREFIX/bin/clang -DCMAKE_CXX_COMPILER=$CONDA_PREFIX/bin/clang++-22"
 run = { cmd = "./build/rocky", depends-on = ["compile"] }
 
-# Windows uses GCC via MinGW-w64 to compile
-# Lots of command prompt/powershell tomfoolery needed to get
-# machine-independent paths working by expanding CONDA_PREFIX env variable
 [target.win-64.tasks]
-# disable dia sdk
-patch-llvm = "cmd /C \"powershell -NoProfile -Command \\\"$f = $env:CONDA_PREFIX + '/Library/lib/cmake/llvm/LLVMExports.cmake'; (Get-Content $f) -replace '\\$ENV\\{VSINSTALLDIR\\}/DIA SDK/lib/amd64/diaguids\\.lib;', '' | Set-Content $f\\\"\""
-configure = { cmd = "cmd /C cmake -S . -B build -G \"MinGW Makefiles\" -DCMAKE_C_COMPILER=\"%CONDA_PREFIX%/Library/mingw-w64/bin/gcc.exe\" -DCMAKE_CXX_COMPILER=\"%CONDA_PREFIX%/Library/mingw-w64/bin/g++.exe\" -DCMAKE_MAKE_PROGRAM=\"%CONDA_PREFIX%/Library/mingw-w64/bin/mingw32-make.exe\"", depends-on = ["patch-llvm"] }
-run = { cmd = "./build/rocky.exe", depends-on = ["compile"] }
+msvc-shims = "cmd /C msvcup resolve --config %PIXI_PROJECT_ROOT%/msvcup.toml --out-dir %CONDA_PREFIX%/bin"
+clean-msvc = { cmd = "cmd /C rmdir /S /Q %USERPROFILE%\\.msvcup 2>nul & exit 0" }
+configure = { cmd = "msvcup-autoenv install && cmake -S . -B build -G \"Ninja\" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl", depends-on = ["msvc-shims"] }
+compile   = "cmake --build build"
+run       = { cmd = ".\\build\\rocky.exe", depends-on = ["compile"] }
 
 # Common to both OSes
 [tasks]
@@ -29,10 +27,11 @@ cmake = ">=4.3.1,<5"
 llvm    = ">=22.1.3,<23"
 llvmdev = ">=22.1.3,<23"
 zlib = ">=1.3.2,<2"
+ninja = ">=1.13.2,<2"
 
 [target.linux-64.dependencies]
 clang   = ">=22.1.3,<23"
-make    = ">=4.4.1,<5"
 
 [target.win-64.dependencies]
-m2w64-toolchain = ">=5.3.0,<6"
+msvcup = ">=0.1.0,<0.2"
+vs2022_win-64 = ">=19.44.35207,<20"
