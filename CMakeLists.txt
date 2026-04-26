@@ -31,32 +31,51 @@ else()
   target_link_libraries(rocky ${llvm_libs})
 endif()
 
-#testing setup
-add_executable(test_main
-    tests/core/test_main.c
-    external/unity/src/unity.c
-)
-target_include_directories(test_main PUBLIC include external/unity/src)
-if(WIN32)
-  target_link_libraries(test_main LLVM-C)
-else()
-  target_link_libraries(test_main ${llvm_libs})
-endif()
-add_test(NAME test_main COMMAND test_main)
 
-#testing of math
-add_executable(test_math
-    tests/core/test_math.c
-    src/math.c
-    external/unity/src/unity.c
+#Testing Part
+file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/src/*.c
 )
 
-target_include_directories(test_math PUBLIC include external/unity/src)
+list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/src/main.c)
 
-if(WIN32)
-  target_link_libraries(test_math LLVM-C)
-else()
-  target_link_libraries(test_math ${llvm_libs})
-endif()
+file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/tests/**/*.c
+)
 
-add_test(NAME test_math COMMAND test_math)
+foreach(test_src ${TEST_SOURCES})
+    get_filename_component(test_file ${test_src} NAME_WE)
+
+    get_filename_component(test_dir ${test_src} DIRECTORY)
+    file(RELATIVE_PATH rel_dir ${CMAKE_SOURCE_DIR} ${test_dir})
+
+    string(REPLACE "/" "_" rel_dir_name ${rel_dir})
+
+    set(test_name "${rel_dir_name}_${test_file}")
+
+    add_executable(${test_name}
+        ${test_src}
+        ${SRC_FILES}
+        external/unity/src/unity.c
+    )
+
+    target_include_directories(${test_name} PUBLIC
+        include
+        external/unity/src
+    )
+
+    if(WIN32)
+        target_link_libraries(${test_name} LLVM-C)
+    else()
+        target_link_libraries(${test_name} ${llvm_libs})
+    endif()
+
+    set_target_properties(${test_name} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${rel_dir}
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/${rel_dir}
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/${rel_dir}
+    )
+
+    add_test(NAME ${test_name} COMMAND ${test_name})
+
+endforeach()

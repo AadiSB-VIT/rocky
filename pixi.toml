@@ -12,6 +12,8 @@ run = { cmd = "./build/rocky", depends-on = ["compile"] }
 clean = "rm -r build"
 compile = { cmd = "cmake --build build", depends-on = ["configure"] }
 test = { cmd = "ctest --test-dir build", depends-on = ["compile"] }
+test-one = { cmd = "ctest --test-dir build -R {{ test_name }}", depends-on = ["compile"], args = ["test_name"] }
+test-group = { cmd = "ctest --test-dir build -R {{ group_name }}", depends-on = ["compile"], args = ["group_name"] }
 
 # Windows auto-installs and uses msvc
 [target.win-64.tasks]
@@ -23,6 +25,8 @@ run       = { cmd = "cmd /C .\\build\\rocky.exe", depends-on = ["compile"] }
 clean = "cmd /C rmdir /S /Q %PIXI_PROJECT_ROOT%\\build"
 compile = { cmd = "cmd /C cmake --build build", depends-on = ["configure"] }
 test = { cmd = "cmd /C ctest --test-dir build", depends-on = ["compile"] }
+test-one = { cmd = "cmd /C ctest --test-dir build -R {{ test_name }}", depends-on = ["compile"], args = ["test_name"] }
+test-group = { cmd = "cmd /C ctest --test-dir build -R {{ group_name }}", depends-on = ["compile"], args = ["group_name"] }
 
 [dependencies]
 cmake = ">=4.3.1,<5"
