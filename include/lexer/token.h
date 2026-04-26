@@ -3,11 +3,7 @@
 
 #include <stddef.h>
 
-/*
- * TokenType:
- * Represents all possible token kinds.
- * Can add new tokens here.
- */
+/* Token Types */
 typedef enum {
     /*  Literals  */
     TOKEN_INT,
@@ -34,20 +30,16 @@ typedef enum {
 
 } TokenType;
 
-/*
- * Token:
- * Represents a lexeme in the source code.
- * Uses pointer + length
- */
+/* Lexeme is represented as a slice (start pointer+length) into original source buffer */
 typedef struct {
-    TokenType type;
+    TokenType type;     // type of token
 
-    const char *start;  // points into original source
+    const char *start;  // pointer to first character of lexeme
     size_t length;      // length of lexeme
 
-    int line;           // line number (1-based)
-    int column;         // column number (start position)
+    int line;           // line no.
+    int column;         // column no.
 
 } Token;
 
-#endif /* ROCKY_LEXER_TOKEN_H */
+#endif 
