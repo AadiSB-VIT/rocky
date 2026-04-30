@@ -18,6 +18,10 @@ static void jit_verify_module_mutable(JITContext* ctx) {
     }
 }
 
+void jit_error_report(void* ctx, LLVMErrorRef err) {
+    printf("JIT Error Report: %s\n", LLVMGetErrorMessage(err));
+}
+
 void jit_init(JITContext* ctx) {
     memset(ctx, 0, sizeof(JITContext));
     
@@ -27,73 +31,57 @@ void jit_init(JITContext* ctx) {
     
     ctx->ctx = LLVMContextCreate();
     ctx->orc_threadsafe_ctx = LLVMOrcCreateNewThreadSafeContextFromLLVMContext(ctx->ctx);
-    ctx->builder = LLVMCreateBuilder();
     
-    // TODO(voxel): manip options using LLJITBuilder
+    
+    LLVMOrcLLJITBuilderRef jit_builder = LLVMOrcCreateLLJITBuilder();
+    // No options to specify for jit_builder as of yet.
+    // Seems to allow changing target machine spec or linking layer neither of which
+    //  we need to change from default.
+    
     LLVMErrorRef err = LLVMOrcCreateLLJIT(&ctx->jit, NULL);
+    LLVMOrcDisposeLLJITBuilder(jit_builder);
     if (err) {
         fprintf(stderr, "JIT Engine could not be initialized\n");
         return;
     }
+    
+    LLVMOrcExecutionSessionRef session = LLVMOrcLLJITGetExecutionSession(ctx->jit);
+    LLVMOrcExecutionSessionSetErrorReporter(session, jit_error_report, NULL);
+    
     ctx->jit_dylib = LLVMOrcLLJITGetMainJITDylib(ctx->jit);
     ctx->should_create_module = true;
 }
-
 
 // @Temporary Adds printnum
 void jit_add_dummy_functions(JITContext* ctx) {
     jit_verify_module_mutable(ctx);
     LLVMModuleRef module = ctx->current_module.handle;
     
+    LLVMBuilderRef builder = LLVMCreateBuilderInContext(ctx->ctx);
+    
     // Add printf
     LLVMTypeRef printf_args[] = { LLVMPointerType(LLVMInt8Type(), 0) };
-    LLVMTypeRef printf_type = LLVMFunctionType(LLVMInt32Type(), printf_args, 1, 1);
+    LLVMTypeRef printf_type = LLVMFunctionType(LLVMInt32TypeInContext(ctx->ctx), printf_args, 1, 1);
     LLVMValueRef printf_fn = LLVMAddFunction(module, "printf", printf_type);
     
     // Add simple printnum function
-    LLVMTypeRef printnum_arg_types[] = { LLVMInt32Type() };
-    LLVMTypeRef printnum_ret_type = LLVMVoidType();
+    LLVMTypeRef printnum_arg_types[] = { LLVMInt32TypeInContext(ctx->ctx) };
+    LLVMTypeRef printnum_ret_type = LLVMVoidTypeInContext(ctx->ctx);
     LLVMTypeRef printnum_func_type = LLVMFunctionType(printnum_ret_type, printnum_arg_types, 1, 0);
     LLVMValueRef printnum = LLVMAddFunction(module, "printnum", printnum_func_type);
     
     // Add entry BB
-    LLVMBasicBlockRef entry = LLVMAppendBasicBlock(printnum, "entry");
-    LLVMPositionBuilderAtEnd(ctx->builder, entry);
+    LLVMBasicBlockRef entry = LLVMAppendBasicBlockInContext(ctx->ctx, printnum, "entry");
+    LLVMPositionBuilderAtEnd(builder, entry);
     
     // Printf call
-    LLVMValueRef printf_call_fmtstr = LLVMBuildGlobalStringPtr(ctx->builder, "Hello %d\n", "str");
+    LLVMValueRef printf_call_fmtstr = LLVMBuildGlobalStringPtr(builder, "Hello %d\n", "str");
     LLVMValueRef printf_call_args[] = { printf_call_fmtstr, LLVMGetParam(printnum, 0) };
-    LLVMBuildCall2(ctx->builder, printf_type, printf_fn, printf_call_args, 2, "printf_call");
-    LLVMBuildRet(ctx->builder, NULL);
+    LLVMBuildCall2(builder, printf_type, printf_fn, printf_call_args, 2, "printf_call");
+    LLVMBuildRetVoid(builder);
+    
+    LLVMDisposeBuilder(builder);
 }
-
-// @Temporary Adds printnum2
-void jit_add_more_dummy_functions(JITContext* ctx) {
-    jit_verify_module_mutable(ctx);
-    LLVMModuleRef module = ctx->current_module.handle;
-    
-    // Add printf
-    LLVMTypeRef printf_args[] = { LLVMPointerType(LLVMInt8Type(), 0) };
-    LLVMTypeRef printf_type = LLVMFunctionType(LLVMInt32Type(), printf_args, 1, 1);
-    LLVMValueRef printf_fn = LLVMAddFunction(module, "printf", printf_type);
-    
-    // Add simple printnum function
-    LLVMTypeRef printnum_arg_types[] = { LLVMInt32Type() };
-    LLVMTypeRef printnum_ret_type = LLVMVoidType();
-    LLVMTypeRef printnum_func_type = LLVMFunctionType(printnum_ret_type, printnum_arg_types, 1, 0);
-    LLVMValueRef printnum = LLVMAddFunction(module, "printnum2", printnum_func_type);
-    
-    // Add entry BB
-    LLVMBasicBlockRef entry = LLVMAppendBasicBlock(printnum, "entry");
-    LLVMPositionBuilderAtEnd(ctx->builder, entry);
-    
-    // Printf call
-    LLVMValueRef printf_call_fmtstr = LLVMBuildGlobalStringPtr(ctx->builder, "World %d\n", "str");
-    LLVMValueRef printf_call_args[] = { printf_call_fmtstr, LLVMGetParam(printnum, 0) };
-    LLVMBuildCall2(ctx->builder, printf_type, printf_fn, printf_call_args, 2, "printf_call");
-    LLVMBuildRet(ctx->builder, NULL);
-}
-
 
 void jit_bake(JITContext* ctx) {
     LLVMOrcLLJITAddLLVMIRModule(ctx->jit, ctx->jit_dylib, ctx->current_module.threadsafe_handle);
@@ -107,8 +95,6 @@ void_func* jit_lookup_function(JITContext* ctx, char* function_name) {
 }
 
 void jit_free(JITContext* ctx) {
-    LLVMDisposeBuilder(ctx->builder);
-    
     LLVMOrcDisposeLLJIT(ctx->jit);
     LLVMOrcDisposeThreadSafeContext(ctx->orc_threadsafe_ctx);
 }

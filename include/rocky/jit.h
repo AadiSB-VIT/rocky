@@ -28,8 +28,6 @@ struct JITContext {
     LLVMOrcJITDylibRef jit_dylib;
     LLVMOrcThreadSafeContextRef orc_threadsafe_ctx;
     
-    LLVMBuilderRef builder;
-    
     int created_module_count;
     // We only need to store the most recent module that is mutable for now.
     JITModule current_module;
@@ -39,10 +37,7 @@ struct JITContext {
 void       jit_init(JITContext* ctx);
 void       jit_free(JITContext* ctx);
 void       jit_add_dummy_functions(JITContext* ctx);
-void       jit_add_more_dummy_functions(JITContext* ctx);
 void       jit_bake(JITContext* ctx);
 void_func* jit_lookup_function(JITContext* ctx, char* function_name);
-
-
 
 #endif //JIT_H
