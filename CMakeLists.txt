@@ -108,14 +108,29 @@ find_program(FILECHECK_EXE NAMES FileCheck FileCheck.exe
 
 if(EXISTS "${LIT_TEST_ROOT}" AND LLVM_LIT AND FILECHECK_EXE)
     set(FAKE_PARSER_BIN "${FAKE_PARSER_BIN_DIR}/fake_parser${CMAKE_EXECUTABLE_SUFFIX}")
-    add_test(NAME lit
-        COMMAND ${LLVM_LIT}
-            -v
-            -Dparser=${FAKE_PARSER_BIN}
-            -Dfilecheck=${FILECHECK_EXE}
-            ${LIT_TEST_ROOT}
+
+    file(GLOB_RECURSE LIT_TEST_SOURCES CONFIGURE_DEPENDS
+        ${LIT_TEST_ROOT}/**/*.rocky
     )
-    set_tests_properties(lit PROPERTIES LABELS "lit")
+
+    foreach(lit_src ${LIT_TEST_SOURCES})
+        file(RELATIVE_PATH lit_rel_path ${LIT_TEST_ROOT} ${lit_src})
+        string(REGEX REPLACE "\\.rocky$" "" lit_label_path "${lit_rel_path}")
+        string(REPLACE "/" "_" lit_rel_name "${lit_label_path}")
+        set(lit_test_name "lit_${lit_rel_name}")
+
+        add_test(NAME ${lit_test_name}
+            COMMAND ${LLVM_LIT}
+                -v
+                -Dparser=${FAKE_PARSER_BIN}
+                -Dfilecheck=${FILECHECK_EXE}
+                ${lit_src}
+        )
+
+        set_tests_properties(${lit_test_name} PROPERTIES
+            LABELS "lit/${lit_label_path}"
+        )
+    endforeach()
 elseif(EXISTS "${LIT_TEST_ROOT}")
     message(WARNING "Lit tests are configured but llvm-lit or FileCheck was not found.")
 endif()
