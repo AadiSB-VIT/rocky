@@ -4,7 +4,7 @@
 
 /* ── pretty-printer ──────────────────────────────────────── */
 
-static void print_expr(const Expr *e, int depth) {
+static void pretty_print_expr(const Expr *e, int depth) {
     for (int i = 0; i < depth; i++) printf("  ");
 
     switch (e->kind) {
@@ -28,7 +28,7 @@ static void print_expr(const Expr *e, int depth) {
                 case UNOP_LOGICNOT: op = "!";  break;
             }
             printf("UNARY(%s)\n", op);
-            print_expr(e->as.unary.operand, depth + 1);
+            pretty_print_expr(e->as.unary.operand, depth + 1);
             break;
         }
         case EXPR_BINARY: {
@@ -54,13 +54,13 @@ static void print_expr(const Expr *e, int depth) {
                 case BINOP_OR:   op = "||";  break;
             }
             printf("BINARY(%s)\n", op);
-            print_expr(e->as.binary.lhs, depth + 1);
-            print_expr(e->as.binary.rhs, depth + 1);
+            pretty_print_expr(e->as.binary.lhs, depth + 1);
+            pretty_print_expr(e->as.binary.rhs, depth + 1);
             break;
         }
         case EXPR_CAST:
             printf("CAST\n");
-            print_expr(e->as.cast.operand, depth + 1);
+            pretty_print_expr(e->as.cast.operand, depth + 1);
             break;
     }
 }
@@ -113,7 +113,7 @@ static void run(const char *label, Token *tokens, int len,
     Parser p;
     parser_init(&p, tokens, len, arena);
     Expr *tree = parse_expr(&p, 0);
-    print_expr(tree, 0);
+    pretty_print_expr(tree, 0);
     arena->used = 0;   /* reset for next test */
     printf("\n");
 }
