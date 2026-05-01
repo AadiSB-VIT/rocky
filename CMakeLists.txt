@@ -52,6 +52,8 @@ file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/tests/**/*.c
 )
 
+list(FILTER TEST_SOURCES EXCLUDE REGEX "[\\/]tests[\\/]lit[\\/]")
+
 foreach(test_src ${TEST_SOURCES})
     get_filename_component(test_file ${test_src} NAME_WE)
 
