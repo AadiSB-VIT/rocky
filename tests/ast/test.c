@@ -34,24 +34,24 @@ static void print_expr(const Expr *e, int depth) {
         case EXPR_BINARY: {
             const char *op = "?";
             switch (e->as.binary.op) {
-                case BINOP_ADD: op = "+";   break;
-                case BINOP_SUB: op = "-";   break;
-                case BINOP_MUL: op = "*";   break;
-                case BINOP_DIV: op = "/";   break;
-                case BINOP_MOD: op = "%";   break;
-                case BINOP_BAND: op = "&";  break;
-                case BINOP_BOR:  op = "|";  break;
-                case BINOP_BXOR: op = "^";  break;
-                case BINOP_SHL:  op = "<<"; break;
-                case BINOP_SHR:  op = ">>"; break;
-                case BINOP_EQ:   op = "=="; break;
-                case BINOP_NEQ:  op = "!="; break;
-                case BINOP_LT:   op = "<";  break;
-                case BINOP_GT:   op = ">";  break;
-                case BINOP_LE:   op = "<="; break;
-                case BINOP_GE:   op = ">="; break;
-                case BINOP_AND:  op = "&&"; break;
-                case BINOP_OR:   op = "||"; break;
+                case BINOP_ADD:  op = "+";   break;
+                case BINOP_SUB:  op = "-";   break;
+                case BINOP_MUL:  op = "*";   break;
+                case BINOP_DIV:  op = "/";   break;
+                case BINOP_MOD:  op = "%";   break;
+                case BINOP_BAND: op = "&";   break;
+                case BINOP_BOR:  op = "|";   break;
+                case BINOP_BXOR: op = "^";   break;
+                case BINOP_SHL:  op = "<<";  break;
+                case BINOP_SHR:  op = ">>";  break;
+                case BINOP_EQ:   op = "==";  break;
+                case BINOP_NEQ:  op = "!=";  break;
+                case BINOP_LT:   op = "<";   break;
+                case BINOP_GT:   op = ">";   break;
+                case BINOP_LE:   op = "<=";  break;
+                case BINOP_GE:   op = ">=";  break;
+                case BINOP_AND:  op = "&&";  break;
+                case BINOP_OR:   op = "||";  break;
             }
             printf("BINARY(%s)\n", op);
             print_expr(e->as.binary.lhs, depth + 1);
@@ -107,19 +107,22 @@ static Token tok_eof(void) {
 
 /* ── run one test ────────────────────────────────────────── */
 
-static void run(const char *label, Token *tokens, int len) {
+static void run(const char *label, Token *tokens, int len,
+                Arena *arena) {
     printf("=== %s ===\n", label);
     Parser p;
-    parser_init(&p, tokens, len);
+    parser_init(&p, tokens, len, arena);
     Expr *tree = parse_expr(&p, 0);
     print_expr(tree, 0);
-    expr_free(tree);
+    arena->used = 0;   /* reset for next test */
     printf("\n");
 }
 
 /* ── tests ───────────────────────────────────────────────── */
 
 int main(void) {
+    Arena arena;
+    arena_init(&arena, 4096);
 
     /* 1 + 2 * 3   →   +(1, *(2, 3))  */
     {
@@ -128,7 +131,7 @@ int main(void) {
             tok_int(2), tok_op(TOK_STAR),
             tok_int(3), tok_eof()
         };
-        run("1 + 2 * 3", toks, 6);
+        run("1 + 2 * 3", toks, 6, &arena);
     }
 
     /* -~x   →   -(~(x))  */
@@ -138,7 +141,7 @@ int main(void) {
             tok_op(TOK_MINUS), tok_op(TOK_TILDE),
             tok_ident(name, 1), tok_eof()
         };
-        run("-~x", toks, 4);
+        run("-~x", toks, 4, &arena);
     }
 
     /* a & b << 1   →   &(a, <<(b, 1))  — & binds looser than << */
@@ -149,7 +152,7 @@ int main(void) {
             tok_ident(b, 1), tok_op(TOK_LSHIFT),
             tok_int(1),      tok_eof()
         };
-        run("a & b << 1", toks, 6);
+        run("a & b << 1", toks, 6, &arena);
     }
 
     /* (1 + 2) * 3   →   *(+(1,2), 3)  */
@@ -160,7 +163,7 @@ int main(void) {
             tok_op(TOK_RPAREN),
             tok_op(TOK_STAR), tok_int(3), tok_eof()
         };
-        run("(1 + 2) * 3", toks, 8);
+        run("(1 + 2) * 3", toks, 8, &arena);
     }
 
     /* 1.5 + 2.5   →   +(1.5, 2.5)  */
@@ -169,7 +172,7 @@ int main(void) {
             tok_float(1.5), tok_op(TOK_PLUS),
             tok_float(2.5), tok_eof()
         };
-        run("1.5 + 2.5", toks, 4);
+        run("1.5 + 2.5", toks, 4, &arena);
     }
 
     /* a || b && c   →   ||(a, &&(b, c))  — && binds tighter */
@@ -180,8 +183,9 @@ int main(void) {
             tok_ident(b, 1), tok_op(TOK_AMPAMP),
             tok_ident(c, 1), tok_eof()
         };
-        run("a || b && c", toks, 6);
+        run("a || b && c", toks, 6, &arena);
     }
 
+    arena_free(&arena);
     return 0;
 }

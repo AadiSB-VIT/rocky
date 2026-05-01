@@ -4,8 +4,9 @@
 
 /* ── Allocator ───────────────────────────────────────────── */
 
-static Expr *alloc_expr(ExprKind kind, Token tok) {
-    Expr *e  = calloc(1, sizeof(Expr));
+static Expr *alloc_expr(Parser *p, ExprKind kind, Token tok) {
+    Expr *e  = arena_alloc(p->arena, sizeof(Expr));
+    memset(e, 0, sizeof(Expr));
     e->kind  = kind;
     e->token = tok;
     e->type  = TYPE_VOID;
@@ -127,10 +128,11 @@ static BinaryOp tok_to_binop(TokenKind k) {
 
 /* ── Core Pratt loop ─────────────────────────────────────── */
 
-void parser_init(Parser *p, const Token *tokens, int len) {
+void parser_init(Parser *p, const Token *tokens, int len, Arena *arena) {
     p->tokens = tokens;
     p->pos    = 0;
     p->len    = len;
+    p->arena  = arena;
 }
 
 Expr *parse_expr(Parser *p, int min_bp) {
@@ -139,59 +141,50 @@ Expr *parse_expr(Parser *p, int min_bp) {
 
     /* ── nud: prefix / atom ──────────────────────────────── */
     switch (tok.kind) {
-
-        case TOK_INT: {
-            lhs = alloc_expr(EXPR_INT_LIT, tok);
-            lhs->as.ival = tok.value.ival;
-            break;
-        }
-
-        case TOK_FLOAT: {
-            lhs = alloc_expr(EXPR_FLOAT_LIT, tok);
-            lhs->as.fval = tok.value.fval;
-            break;
-        }
-
-        case TOK_TRUE:
-        case TOK_FALSE: {
-            lhs = alloc_expr(EXPR_BOOL_LIT, tok);
-            lhs->as.bval = (tok.kind == TOK_TRUE) ? 1 : 0;
-            break;
-        }
-
-        case TOK_IDENT: {
-            lhs = alloc_expr(EXPR_IDENT, tok);
-            lhs->as.ident.name = tok.start;
-            lhs->as.ident.len  = tok.len;
-            break;
-        }
-
-        case TOK_LPAREN: {
-            /* grouped expression — consume inner expr then closing ')' */
-            lhs = parse_expr(p, 0);
-            expect(p, TOK_RPAREN);
-            break;
-        }
-
-        case TOK_MINUS:
-        case TOK_TILDE:
-        case TOK_BANG: {
-            int   bp      = prefix_bp(tok.kind);
-            Expr *operand = parse_expr(p, bp);
-            lhs           = alloc_expr(EXPR_UNARY, tok);
-            lhs->as.unary.op      = tok_to_unop(tok.kind);
-            lhs->as.unary.operand = operand;
-            break;
-        }
-
-        default: {
-            fprintf(stderr, "parse error at line %d col %d: "
-                            "unexpected token %d in expression\n",
-                    tok.line, tok.col, tok.kind);
-            exit(1);
-        }
+    case TOK_INT: {
+        lhs = alloc_expr(p, EXPR_INT_LIT, tok);
+        lhs->as.ival = tok.value.ival;
+        break;
     }
-
+    case TOK_FLOAT: {
+        lhs = alloc_expr(p, EXPR_FLOAT_LIT, tok);
+        lhs->as.fval = tok.value.fval;
+        break;
+    }
+    case TOK_TRUE:
+    case TOK_FALSE: {
+        lhs = alloc_expr(p, EXPR_BOOL_LIT, tok);
+        lhs->as.bval = (tok.kind == TOK_TRUE) ? 1 : 0;
+        break;
+    }
+    case TOK_IDENT: {
+        lhs = alloc_expr(p, EXPR_IDENT, tok);
+        lhs->as.ident.name = tok.start;
+        lhs->as.ident.len  = tok.len;
+        break;
+    }
+    case TOK_LPAREN: {
+        lhs = parse_expr(p, 0);
+        expect(p, TOK_RPAREN);
+        break;
+    }
+    case TOK_MINUS:
+    case TOK_TILDE:
+    case TOK_BANG: {
+        int   bp      = prefix_bp(tok.kind);
+        Expr *operand = parse_expr(p, bp);
+        lhs           = alloc_expr(p, EXPR_UNARY, tok);
+        lhs->as.unary.op      = tok_to_unop(tok.kind);
+        lhs->as.unary.operand = operand;
+        break;
+    }
+    default: {
+        fprintf(stderr, "parse error at line %d col %d: "
+                        "unexpected token %d in expression\n",
+                tok.line, tok.col, tok.kind);
+        exit(1);
+    }
+}
     /* ── led: infix / binary ─────────────────────────────── */
     for (;;) {
         Token op  = peek(p);
@@ -203,7 +196,7 @@ Expr *parse_expr(Parser *p, int min_bp) {
         advance(p);   /* consume the operator token */
 
         Expr *rhs = parse_expr(p, bp.rbp);
-        Expr *bin = alloc_expr(EXPR_BINARY, op);
+        Expr *bin = alloc_expr(p, EXPR_BINARY, op);
         bin->as.binary.op  = tok_to_binop(op.kind);
         bin->as.binary.lhs = lhs;
         bin->as.binary.rhs = rhs;
