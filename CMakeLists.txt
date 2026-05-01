@@ -33,6 +33,15 @@ endif()
 
 
 #Testing Part
+set(FAKE_PARSER_BIN_DIR "${CMAKE_BINARY_DIR}/tools")
+
+add_executable(fake_parser tools/fake_parser.c)
+set_target_properties(fake_parser PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${FAKE_PARSER_BIN_DIR}
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${FAKE_PARSER_BIN_DIR}
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${FAKE_PARSER_BIN_DIR}
+)
+
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/src/*.c
 )
@@ -42,6 +51,8 @@ list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/src/main.c)
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/tests/**/*.c
 )
+
+list(FILTER TEST_SOURCES EXCLUDE REGEX "[\\/]tests[\\/]lit[\\/]")
 
 foreach(test_src ${TEST_SOURCES})
     get_filename_component(test_file ${test_src} NAME_WE)
@@ -86,3 +97,40 @@ foreach(test_src ${TEST_SOURCES})
     )
 
 endforeach()
+
+set(LIT_TEST_ROOT "${CMAKE_SOURCE_DIR}/tests/lit")
+find_program(LLVM_LIT NAMES llvm-lit llvm-lit.py lit
+    HINTS ${LLVM_TOOLS_BINARY_DIR} ${CMAKE_PREFIX_PATH}/bin
+)
+find_program(FILECHECK_EXE NAMES FileCheck FileCheck.exe
+    HINTS ${LLVM_TOOLS_BINARY_DIR} ${CMAKE_PREFIX_PATH}/bin ${CMAKE_PREFIX_PATH}/libexec/llvm
+)
+
+if(EXISTS "${LIT_TEST_ROOT}" AND LLVM_LIT AND FILECHECK_EXE)
+    set(FAKE_PARSER_BIN "${FAKE_PARSER_BIN_DIR}/fake_parser${CMAKE_EXECUTABLE_SUFFIX}")
+
+    file(GLOB_RECURSE LIT_TEST_SOURCES CONFIGURE_DEPENDS
+        ${LIT_TEST_ROOT}/**/*.rocky
+    )
+
+    foreach(lit_src ${LIT_TEST_SOURCES})
+        file(RELATIVE_PATH lit_rel_path ${LIT_TEST_ROOT} ${lit_src})
+        string(REGEX REPLACE "\\.rocky$" "" lit_label_path "${lit_rel_path}")
+        string(REPLACE "/" "_" lit_rel_name "${lit_label_path}")
+        set(lit_test_name "lit_${lit_rel_name}")
+
+        add_test(NAME ${lit_test_name}
+            COMMAND ${LLVM_LIT}
+                -v
+                -Dparser=${FAKE_PARSER_BIN}
+                -Dfilecheck=${FILECHECK_EXE}
+                ${lit_src}
+        )
+
+        set_tests_properties(${lit_test_name} PROPERTIES
+            LABELS "lit/${lit_label_path}"
+        )
+    endforeach()
+elseif(EXISTS "${LIT_TEST_ROOT}")
+    message(WARNING "Lit tests are configured but llvm-lit or FileCheck was not found.")
+endif()
