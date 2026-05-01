@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "parser.h"
+#include "ast/parser.h"
 
 /* ── pretty-printer ──────────────────────────────────────── */
 
