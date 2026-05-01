@@ -18,7 +18,6 @@ int main() {
     jit_bake(&jit);
     
     printnum_fn* fn = (printnum_fn*) jit_lookup_function(&jit, "printnum");
-    void_func* another = (void_func*) jit_lookup_function(&jit, "failtest");
     fn(10);
     fn(20);
     fn(30);

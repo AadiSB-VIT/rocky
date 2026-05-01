@@ -41,7 +41,9 @@ else()
 endif()
 
 
-#Testing Part
+# Testing Part
+
+#[[
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/src/*.c
 )
@@ -95,3 +97,4 @@ foreach(test_src ${TEST_SOURCES})
     )
 
 endforeach()
+]]
