@@ -2,7 +2,7 @@
 #define AST_H
 
 #include <stdint.h>
-#include "ast/token.h"
+#include "rocky/ast/token.h"
 
 /* ── Types ────────────────────────────────────────────────── */
 

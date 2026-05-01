@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "ast/parser.h"
+#include "rocky/ast/parser.h"
 
 /* ── Allocator ───────────────────────────────────────────── */
 

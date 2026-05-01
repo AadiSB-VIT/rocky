@@ -1,9 +1,9 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "ast/ast.h"
-#include "ast/arena.h"
-#include "ast/token.h"
+#include "rocky/ast/ast.h"
+#include "rocky/arena.h"
+#include "rocky/ast/token.h"
 
 typedef struct {
     const Token *tokens;   /* flat token array from lexer  */
