@@ -1,8 +1,14 @@
 # pixi environments
 .pixi/*
 !.pixi/config.toml
-build
-.cache
+
+# build/clang artifacts
+build/
+.cache/
+
+# code editor config
 .vscode/
+
+# lit tests
 tests/lit/.lit_test_times.txt
 tests/lit/**/Output/
