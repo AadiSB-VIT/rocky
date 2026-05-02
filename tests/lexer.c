@@ -8,7 +8,7 @@ void tearDown(void) {}
 
 Lexer lexer;
 
-static void assert_token(const char *source, TokenType expected_type, const char *expected_lexeme) {
+static void assert_token(const char *source, TokenKind expected_type, const char *expected_lexeme) {
     lexer_init(&lexer, source);
     Token token = lexer_next_token(&lexer);
     TEST_ASSERT_EQUAL_INT_MESSAGE(expected_type, token.type, source);
