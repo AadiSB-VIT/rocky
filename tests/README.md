@@ -1,198 +1,142 @@
-# Unit Testing with Unity
+# Testing in Rocky
 
-A scalable, zero-configuration unit testing setup for C projects using the [Unity](https://github.com/ThrowTheSwitch/Unity) framework, [CMake](https://cmake.org/) for automatic test discovery, and [Pixi](https://prefix.dev/) for task execution.
+Rocky uses a two-tier testing strategy: **Unity** for unit testing C code and **Lit** for end-to-end integration testing of the compiler pipeline.
 
 ---
 
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
-- [Getting Started](#getting-started)
 - [Folder Structure](#folder-structure)
-- [Writing Tests](#writing-tests)
+- [Unit Testing with Unity](#unit-testing-with-unity)
+- [Integration Testing with Lit](#integration-testing-with-lit)
 - [Running Tests](#running-tests)
-- [How It Works](#how-it-works)
 - [Guidelines](#guidelines)
 
 ---
 
 ## Prerequisites
 
-Ensure the following tools are installed before getting started:
+Ensure the following tools are installed:
 
-- **CMake** ≥ 3.15
+- **CMake** >= 3.20
 - **Pixi** — [installation guide](https://prefix.dev/docs/pixi/overview)
-- A C compiler (Clang on Linux, or MSVC on Windows)
-
----
-
-## Getting Started
-
-Clone the repository and initialize the Unity submodule:
-
-```sh
-git clone <your-repo-url>
-cd <your-repo>
-git submodule update --init --recursive
-```
-
-This fetches the Unity testing framework into `external/unity/`.
+- **LLVM Tools** (lit, FileCheck) — provided automatically via Pixi.
 
 ---
 
 ## Folder Structure
 
-Tests live inside the `tests/` directory. Each component or feature area gets its own subdirectory:
-
 ```
 tests/
-├── core/
-│   ├── test_math.c
-│   └── test_string.c
-├── parser/
-│   └── ast/
-│       └── test_ast.c
-└── renderer/
-    └── test_render.c
+├── arena.c             # Unity unit tests for the arena allocator
+├── lexer.c             # Unity unit tests for the lexer
+├── parser.c            # Unity unit tests for the parser/AST
+└── lit/                # Lit integration tests (.rocky files)
+    └── ir/             # IR generation tests
+        └── add.rocky
 ```
-
-| Rule | Detail |
-|---|---|
-| One test file per module | Keep tests focused and isolated |
-| Naming convention | `test_<feature>.c` |
-| Location | `tests/<component>/test_<feature>.c` |
-
-> **No manual CMake changes are needed.** The build system automatically discovers all `.c` files under `tests/`.
 
 ---
 
-## Writing Tests
+## Unit Testing with Unity
 
-Each test file follows the same structure:
+Unity is used for fine-grained testing of C modules.
 
-1. Include the Unity header
-2. Include the module header under test
-3. Implement `setUp()` and `tearDown()` (can be empty)
-4. Write test functions using Unity assertions
-5. Call `RUN_TEST()` for each test inside `main()`
+### Writing Unity Tests
 
-### Example
+1. Create a .c file in a subdirectory of tests/ (e.g., tests/my_feature/test_feature.c).
+2. Include unity.h and your module header.
+3. Implement setUp() and tearDown().
+4. Use RUN_TEST in main().
 
+**Example:**
 ```c
 #include "unity.h"
-#include "rocky/math.h"
+#include <rocky/arena.h>
 
 void setUp(void) {}
 void tearDown(void) {}
 
-void test_add_positive_numbers(void) {
-    TEST_ASSERT_EQUAL(5, add(2, 3));
-}
-
-void test_add_negative_numbers(void) {
-    TEST_ASSERT_EQUAL(-1, add(2, -3));
+void test_allocation(void) {
+    Arena a;
+    arena_init(&a, 1024);
+    TEST_ASSERT_NOT_NULL(arena_alloc(&a, 16));
+    arena_free(&a);
 }
 
 int main(void) {
     UNITY_BEGIN();
-    RUN_TEST(test_add_positive_numbers);
-    RUN_TEST(test_add_negative_numbers);
+    RUN_TEST(test_allocation);
     return UNITY_END();
 }
 ```
 
-### Common Unity Assertions
+---
 
-| Assertion | Description |
-|---|---|
-| `TEST_ASSERT_EQUAL(expected, actual)` | Integer equality |
-| `TEST_ASSERT_EQUAL_FLOAT(expected, actual)` | Float equality |
-| `TEST_ASSERT_EQUAL_STRING(expected, actual)` | String equality |
-| `TEST_ASSERT_TRUE(condition)` | Condition is true |
-| `TEST_ASSERT_FALSE(condition)` | Condition is false |
-| `TEST_ASSERT_NULL(pointer)` | Pointer is NULL |
-| `TEST_ASSERT_NOT_NULL(pointer)` | Pointer is not NULL |
+## Integration Testing with Lit
 
-For the full list, see the [Unity Assertion Reference](https://github.com/ThrowTheSwitch/Unity/blob/master/docs/UnityAssertionsReference.md).
+Lit (LLVM Integrated Tester) is used for end-to-end testing, typically verifying that a given input produces the expected output (IR, assembly, etc.).
 
-### Adding New Tests
+### Writing Lit Tests
 
-Simply create a new `.c` file in the appropriate `tests/` subdirectory:
+1. Create a .rocky file under tests/lit/.
+2. Add RUN: and CHECK: directives.
 
-```sh
-touch tests/core/test_new_feature.c
+- RUN: specifies the command to execute. Use %parser as a placeholder for the compiler/parser binary.
+- CHECK: specifies the expected output patterns.
+
+**Example (tests/lit/ir/add.rocky):**
+```llvm
+// RUN: %parser %s | FileCheck %s
+
+// CHECK: define i32 @main()
+// CHECK: %{{.*}} = add i32 2, 3
+// CHECK: ret i32 %{{.*}}
+
+fn main() {
+    return 2 + 3;
+}
 ```
 
-The build system will automatically detect and include it on the next build. **No CMake changes required.**
+The build system automatically substitutes %parser with the path to the current build's fake_parser (or the real rocky compiler once implemented).
 
 ---
 
 ## Running Tests
 
-Tests are executed using Pixi. Tests are labeled by their folder and file path, enabling flexible filtering.
+Tests are executed using Pixi tasks, which wrap ctest.
 
-### Run all tests
-
+### Run All Tests
 ```sh
 pixi run test
 ```
 
-### Run tests for a specific component
-
+### Run Unity Tests Only
+You can filter by path-based labels:
 ```sh
-pixi run test core
+pixi run test arena   # Runs arena tests
+pixi run test lexer   # Runs lexer tests
 ```
 
-### Run a specific test file
-
+### Run Lit Tests Only
 ```sh
-pixi run test core/test_math
+pixi run lit
+```
+To run specific lit tests:
+```sh
+pixi run lit ir/add   # Runs tests matching lit/ir/add
 ```
 
 ### Test Labels
-
-Test labels are derived directly from file paths:
-
-| File | Label |
-|---|---|
-| `tests/core/test_math.c` | `core/test_math` |
-| `tests/parser/ast/test_ast.c` | `parser/ast/test_ast` |
-
-Labels are **regex-based**, meaning you can match multiple tests using patterns when filtering.
-
-For example:
-- `core` → runs all tests in the `core` component
-- `parser/.*` → runs all parser-related tests
-
-Under the hood, this uses CTest's `-L` (label) filtering.
-
-For more details, see the [CTest `-L` (label filtering) documentation](https://cmake.org/cmake/help/latest/manual/ctest.1.html#cmdoption-ctest-L).
-
----
-
-## How It Works
-
-### Automatic Test Discovery
-
-CMake scans the entire `tests/` directory for `.c` files at build time. Each discovered file is compiled into its own standalone test executable — no manual registration required.
-
-### Source Linking
-
-Source files from `src/` are automatically linked into each test executable, so tested modules are always available without extra configuration.
-
-### Conflict Prevention
-
-`main.c` from the application source is excluded from test builds to prevent `multiple definition of 'main'` linker errors.
+Labels are derived from the relative path under tests/:
+- Unity: tests/lexer.c -> lexer
+- Lit: tests/lit/ir/add.rocky -> lit/ir/add
 
 ---
 
 ## Guidelines
 
-- **Run tests before pushing** — never push code with failing tests
-- **Keep tests independent** — tests must not depend on the execution order of other tests
-- **One module per file** — each test file should test exactly one source module
-- **No application logic in tests** — test files should only contain test code and assertions
-- **Follow naming conventions** — use `test_<feature>.c` and place files under `tests/<component>/`
-- **Write meaningful test cases** — test edge cases, not just the happy path
-
----
+- **Automatic Discovery**: New .c files in tests/ and .rocky files in tests/lit/ are detected automatically when you run pixi run configure (or pixi run test which depends on it).
+- **Independence**: Tests must not depend on each other.
+- **Verification**: Always run pixi run test before submitting changes.

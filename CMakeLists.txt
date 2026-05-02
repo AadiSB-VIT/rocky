@@ -49,7 +49,7 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
 list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/src/main.c)
 
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
-    ${CMAKE_SOURCE_DIR}/tests/**/*.c
+    ${CMAKE_SOURCE_DIR}/tests/*.c
 )
 
 list(FILTER TEST_SOURCES EXCLUDE REGEX "[\\/]tests[\\/]lit[\\/]")
@@ -58,10 +58,18 @@ foreach(test_src ${TEST_SOURCES})
     get_filename_component(test_file ${test_src} NAME_WE)
 
     get_filename_component(test_dir ${test_src} DIRECTORY)
-    file(RELATIVE_PATH rel_dir ${CMAKE_SOURCE_DIR} ${test_dir})
-
-    string(REPLACE "/" "_" rel_dir_name ${rel_dir})
-    set(test_name "${rel_dir_name}_${test_file}")
+    file(RELATIVE_PATH rel_path_from_tests ${CMAKE_SOURCE_DIR}/tests ${test_dir})
+    
+    if(rel_path_from_tests STREQUAL "" OR rel_path_from_tests STREQUAL ".")
+        set(test_name "tests_${test_file}")
+        set(test_label "${test_file}")
+        set(test_rel_dir "tests")
+    else()
+        string(REPLACE "/" "_" rel_path_slug ${rel_path_from_tests})
+        set(test_name "tests_${rel_path_slug}_${test_file}")
+        set(test_label "${rel_path_from_tests}/${test_file}")
+        set(test_rel_dir "tests/${rel_path_from_tests}")
+    endif()
 
     add_executable(${test_name}
         ${test_src}
@@ -81,21 +89,16 @@ foreach(test_src ${TEST_SOURCES})
     endif()
 
     set_target_properties(${test_name} PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${rel_dir}
-        RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/${rel_dir}
-        RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/${rel_dir}
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${test_rel_dir}
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/${test_rel_dir}
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/${test_rel_dir}
     )
 
     add_test(NAME ${test_name} COMMAND ${test_name})
 
-    string(REPLACE "tests/" "" rel_dir_clean ${rel_dir})
-
-    set(test_label "${rel_dir_clean}/${test_file}")
-
     set_tests_properties(${test_name} PROPERTIES
         LABELS ${test_label}
     )
-
 endforeach()
 
 set(LIT_TEST_ROOT "${CMAKE_SOURCE_DIR}/tests/lit")

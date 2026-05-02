@@ -1,4 +1,4 @@
-#include<rocky/debug/debug.h>
+#include <rocky/debug.h>
 #include<stdio.h>
 #include <inttypes.h>
 #include <unistd.h>
@@ -17,16 +17,16 @@ const char* tokenTypeStr(TokenType type) {
         case TOKEN_IDENTIFIER: return "IDENTIFIER";
 
         /*  Operators  */
-        case TOKEN_PLUS: return "PLUS";      
-        case TOKEN_MINUS: return "MINUS";     
-        case TOKEN_STAR: return "STAR";   
-        case TOKEN_SLASH: return "SLASH";     
-        case TOKEN_PERCENT: return "PERCENT";  
-        case TOKEN_EQUALS: return "EQUALS";   
+        case TOKEN_PLUS: return "PLUS";
+        case TOKEN_MINUS: return "MINUS";
+        case TOKEN_STAR: return "STAR";
+        case TOKEN_SLASH: return "SLASH";
+        case TOKEN_PERCENT: return "PERCENT";
+        case TOKEN_EQUALS: return "EQUALS";
 
         /*  Parentheses  */
-        case TOKEN_LPAREN: return "(";   
-        case TOKEN_RPAREN: return ")";    
+        case TOKEN_LPAREN: return "(";
+        case TOKEN_RPAREN: return ")";
 
         /*  Special  */
         case TOKEN_EOF: return "EOF";
@@ -160,7 +160,7 @@ void printChildren(const Expr** children, int count, int depth, int sibling) {
  * If a bit is set, we print spaces instead of vertical lines (│),
  * ensuring correct tree visualization across multiple branches.
  */
-void printExpr(const Expr* expr, int depth, int isLast, int sibling) {  
+void printExpr(const Expr* expr, int depth, int isLast, int sibling) {
     //Null guard
     if (!expr) {
         printf("[NULL EXPR]\n");
@@ -177,7 +177,7 @@ void printExpr(const Expr* expr, int depth, int isLast, int sibling) {
 
     for (int i = 0; i < depth - 1; i++) {
         printf((sibling & ( 1 << i)) ? "    ": "│   ");
-    } 
+    }
 
     /*
      * Selects the appropriate branch symbol:
@@ -203,7 +203,7 @@ void printExpr(const Expr* expr, int depth, int isLast, int sibling) {
         case EXPR_IDENT:
             printf("%s\n", expr->as.ident.name);
             break;
-                
+
         case EXPR_UNARY:
             printf("%s\n", unaryOpStr(expr->as.unary.op));
             printExpr(expr->as.unary.operand, depth + 1, 1, sibling | (1 << depth));
@@ -224,4 +224,3 @@ void printExpr(const Expr* expr, int depth, int isLast, int sibling) {
             break;
     }
 }
-
