@@ -3,7 +3,6 @@
 
 #include <stddef.h>
 
-/* Token Types */
 typedef enum {
     /*  Literals  */
     TOKEN_INT,
@@ -11,23 +10,48 @@ typedef enum {
 
     /*  Identifiers  */
     TOKEN_IDENTIFIER,
+    TOKEN_TRUE,
+    TOKEN_FALSE,
 
-    /*  Operators  */
-    TOKEN_PLUS,      
-    TOKEN_MINUS,     
-    TOKEN_STAR,      
-    TOKEN_SLASH,     
-    TOKEN_PERCENT,   
-    TOKEN_EQUALS,    
+    /*  Arithmetic operators  */
+    TOKEN_PLUS,
+    TOKEN_MINUS,
+    TOKEN_STAR,
+    TOKEN_SLASH,
+    TOKEN_PERCENT,
+
+    /*  Bitwise operators  */
+    TOKEN_AMP,          /* &  */
+    TOKEN_PIPE,         /* |  */
+    TOKEN_CARET,        /* ^  */
+    TOKEN_TILDE,        /* ~  */
+    TOKEN_LSHIFT,       /* << */
+    TOKEN_RSHIFT,       /* >> */
+
+    /*  Comparison  */
+    TOKEN_EQEQ,         /* == */
+    TOKEN_BANGEQ,       /* != */
+    TOKEN_LT,           /* <  */
+    TOKEN_GT,           /* >  */
+    TOKEN_LTEQ,         /* <= */
+    TOKEN_GTEQ,         /* >= */
+
+    /*  Logical  */
+    TOKEN_AMPAMP,       /* && */
+    TOKEN_PIPEPIPE,     /* || */
+    TOKEN_BANG,         /* !  */
+
+    /*  Assignment  */
+    TOKEN_EQUALS,       /* =  */
 
     /*  Parentheses  */
-    TOKEN_LPAREN,    
-    TOKEN_RPAREN,    
+    TOKEN_LPAREN,
+    TOKEN_RPAREN,
 
     /*  Special  */
+    TOKEN_SEMICOLON,
     TOKEN_EOF,
-    TOKEN_INVALID
-
+    TOKEN_INVALID,
 } TokenType;
 
 /* Lexeme is represented as a slice (start pointer+length) into original source buffer */

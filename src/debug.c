@@ -1,4 +1,4 @@
-#include <rocky/debug/debug.h>
+#include <rocky/debug.h>
 #include <stdio.h>
 #include <inttypes.h>
 #include <unistd.h>
@@ -17,17 +17,17 @@ const char* tokenTypeStr(TokenType type) {
         case TOKEN_IDENTIFIER: return "IDENTIFIER";
         
         /*  Operators  */
-        case TOKEN_PLUS: return "PLUS";      
-        case TOKEN_MINUS: return "MINUS";     
-        case TOKEN_STAR: return "STAR";   
-        case TOKEN_SLASH: return "SLASH";     
-        case TOKEN_PERCENT: return "PERCENT";  
-        case TOKEN_EQUALS: return "EQUALS";   
-        
+        case TOKEN_PLUS: return "PLUS";
+        case TOKEN_MINUS: return "MINUS";
+        case TOKEN_STAR: return "STAR";
+        case TOKEN_SLASH: return "SLASH";
+        case TOKEN_PERCENT: return "PERCENT";
+        case TOKEN_EQUALS: return "EQUALS";
+
         /*  Parentheses  */
-        case TOKEN_LPAREN: return "(";   
-        case TOKEN_RPAREN: return ")";    
-        
+        case TOKEN_LPAREN: return "(";
+        case TOKEN_RPAREN: return ")";
+
         /*  Special  */
         case TOKEN_EOF: return "EOF";
         case TOKEN_INVALID: return "INVALID";
@@ -160,7 +160,7 @@ void printChildren(const Expr** children, int count, int depth, int sibling) {
  * If a bit is set, we print spaces instead of vertical lines (│),
  * ensuring correct tree visualization across multiple branches.
  */
-void printExpr(const Expr* expr, int depth, int isLast, int sibling) {  
+void printExpr(const Expr* expr, int depth, int isLast, int sibling) {
     //Null guard
     if (!expr) {
         printf("[NULL EXPR]\n");
@@ -177,8 +177,8 @@ void printExpr(const Expr* expr, int depth, int isLast, int sibling) {
     
     for (int i = 0; i < depth - 1; i++) {
         printf((sibling & ( 1 << i)) ? "    ": "│   ");
-    } 
-    
+    }
+
     /*
      * Selects the appropriate branch symbol:
      *  - "├──" for intermediate nodes
@@ -189,39 +189,39 @@ void printExpr(const Expr* expr, int depth, int isLast, int sibling) {
     
     switch(expr->kind) {
         case EXPR_INT_LIT:
-        printf("%ld\n", expr->as.ival);
-        break;
+            printf("%ld\n", expr->as.ival);
+            break;
         
         case EXPR_FLOAT_LIT:
-        printf("%f\n", expr->as.fval);
-        break;
+            printf("%f\n", expr->as.fval);
+            break;
         
         case EXPR_BOOL_LIT:
-        printf("%s\n", expr->as.bval ? "true" : "false");
-        break;
+            printf("%s\n", expr->as.bval ? "true" : "false");
+            break;
         
         case EXPR_IDENT:
-        printf("%s\n", expr->as.ident.name);
-        break;
-        
+            printf("%s\n", expr->as.ident.name);
+            break;
+
         case EXPR_UNARY:
-        printf("%s\n", unaryOpStr(expr->as.unary.op));
-        printExpr(expr->as.unary.operand, depth + 1, 1, sibling | (1 << depth));
-        break;
+            printf("%s\n", unaryOpStr(expr->as.unary.op));
+            printExpr(expr->as.unary.operand, depth + 1, 1, sibling | (1 << depth));
+            break;
+        
         case EXPR_BINARY:
-        printf("%s\n", binaryOpStr(expr->as.binary.op));
-        const Expr* children[] = {expr->as.binary.lhs, expr->as.binary.rhs};
-        printChildren(children, 2, depth, sibling);
-        break;
+            printf("%s\n", binaryOpStr(expr->as.binary.op));
+            const Expr* children[] = {expr->as.binary.lhs, expr->as.binary.rhs};
+            printChildren(children, 2, depth, sibling);
+            break;
         
         case EXPR_CAST:
-        printf("%s\n", typeStr(expr->as.cast.to));
-        printExpr(expr->as.cast.operand, depth + 1, 1, sibling | (1 << depth));
-        break;
+            printf("%s\n", typeStr(expr->as.cast.to));
+            printExpr(expr->as.cast.operand, depth + 1, 1, sibling | (1 << depth));
+            break;
         
         default:
-        printf("Invalid EXPR");
-        break;
+            printf("Invalid EXPR");
+            break;
     }
 }
-

@@ -41,9 +41,16 @@ else()
 endif()
 
 
-# Testing Part
+#Testing Part
+set(FAKE_PARSER_BIN_DIR "${CMAKE_BINARY_DIR}/tools")
 
-#[[
+add_executable(fake_parser tools/fake_parser.c)
+set_target_properties(fake_parser PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${FAKE_PARSER_BIN_DIR}
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${FAKE_PARSER_BIN_DIR}
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${FAKE_PARSER_BIN_DIR}
+)
+
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/src/*.c
 )
@@ -51,17 +58,27 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
 list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/src/main.c)
 
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
-    ${CMAKE_SOURCE_DIR}/tests/**/*.c
+    ${CMAKE_SOURCE_DIR}/tests/*.c
 )
+
+list(FILTER TEST_SOURCES EXCLUDE REGEX "[\\/]tests[\\/]lit[\\/]")
 
 foreach(test_src ${TEST_SOURCES})
     get_filename_component(test_file ${test_src} NAME_WE)
 
     get_filename_component(test_dir ${test_src} DIRECTORY)
-    file(RELATIVE_PATH rel_dir ${CMAKE_SOURCE_DIR} ${test_dir})
-
-    string(REPLACE "/" "_" rel_dir_name ${rel_dir})
-    set(test_name "${rel_dir_name}_${test_file}")
+    file(RELATIVE_PATH rel_path_from_tests ${CMAKE_SOURCE_DIR}/tests ${test_dir})
+    
+    if(rel_path_from_tests STREQUAL "" OR rel_path_from_tests STREQUAL ".")
+        set(test_name "tests_${test_file}")
+        set(test_label "${test_file}")
+        set(test_rel_dir "tests")
+    else()
+        string(REPLACE "/" "_" rel_path_slug ${rel_path_from_tests})
+        set(test_name "tests_${rel_path_slug}_${test_file}")
+        set(test_label "${rel_path_from_tests}/${test_file}")
+        set(test_rel_dir "tests/${rel_path_from_tests}")
+    endif()
 
     add_executable(${test_name}
         ${test_src}
@@ -81,20 +98,51 @@ foreach(test_src ${TEST_SOURCES})
     endif()
 
     set_target_properties(${test_name} PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${rel_dir}
-        RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/${rel_dir}
-        RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/${rel_dir}
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${test_rel_dir}
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/${test_rel_dir}
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/${test_rel_dir}
     )
 
     add_test(NAME ${test_name} COMMAND ${test_name})
 
-    string(REPLACE "tests/" "" rel_dir_clean ${rel_dir})
-
-    set(test_label "${rel_dir_clean}/${test_file}")
-
     set_tests_properties(${test_name} PROPERTIES
         LABELS ${test_label}
     )
-
 endforeach()
-]]
+
+set(LIT_TEST_ROOT "${CMAKE_SOURCE_DIR}/tests/lit")
+find_program(LLVM_LIT NAMES llvm-lit llvm-lit.py lit
+    HINTS ${LLVM_TOOLS_BINARY_DIR} ${CMAKE_PREFIX_PATH}/bin
+)
+find_program(FILECHECK_EXE NAMES FileCheck FileCheck.exe
+    HINTS ${LLVM_TOOLS_BINARY_DIR} ${CMAKE_PREFIX_PATH}/bin ${CMAKE_PREFIX_PATH}/libexec/llvm
+)
+
+if(EXISTS "${LIT_TEST_ROOT}" AND LLVM_LIT AND FILECHECK_EXE)
+    set(FAKE_PARSER_BIN "${FAKE_PARSER_BIN_DIR}/fake_parser${CMAKE_EXECUTABLE_SUFFIX}")
+
+    file(GLOB_RECURSE LIT_TEST_SOURCES CONFIGURE_DEPENDS
+        ${LIT_TEST_ROOT}/**/*.rocky
+    )
+
+    foreach(lit_src ${LIT_TEST_SOURCES})
+        file(RELATIVE_PATH lit_rel_path ${LIT_TEST_ROOT} ${lit_src})
+        string(REGEX REPLACE "\\.rocky$" "" lit_label_path "${lit_rel_path}")
+        string(REPLACE "/" "_" lit_rel_name "${lit_label_path}")
+        set(lit_test_name "lit_${lit_rel_name}")
+
+        add_test(NAME ${lit_test_name}
+            COMMAND ${LLVM_LIT}
+                -v
+                -Dparser=${FAKE_PARSER_BIN}
+                -Dfilecheck=${FILECHECK_EXE}
+                ${lit_src}
+        )
+
+        set_tests_properties(${lit_test_name} PROPERTIES
+            LABELS "lit/${lit_label_path}"
+        )
+    endforeach()
+elseif(EXISTS "${LIT_TEST_ROOT}")
+    message(WARNING "Lit tests are configured but llvm-lit or FileCheck was not found.")
+endif()

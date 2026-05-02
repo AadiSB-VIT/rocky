@@ -1,11 +1,15 @@
 # pixi environments
 .pixi/*
 !.pixi/config.toml
-build
-.cache
 
-# 4coder editor
+# build/clang artifacts
+build/
+.cache/
+
+# code editor config
 project.4coder
-
-# VSCode editor
 .vscode/
+
+# lit tests
+tests/lit/.lit_test_times.txt
+tests/lit/**/Output/
