@@ -21,11 +21,20 @@ include_directories(external/unity/src)
 add_definitions(${LLVM_DEFINITIONS})
 link_directories(${LLVM_LIBRARY_DIRS})
 
-#main app
-add_executable(rocky src/main.c)
+add_executable(rocky src/main.c src/debug.c src/lexer.c src/parser.c src/jit.c)
 target_include_directories(rocky PUBLIC include)
+
 if(WIN32)
   target_link_libraries(rocky LLVM-C)
+
+  add_custom_command(TARGET rocky POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "$ENV{CONDA_PREFIX}/Library/bin/LLVM-C.dll"
+          "$ENV{CONDA_PREFIX}/Library/bin/zlib.dll"
+          "$ENV{CONDA_PREFIX}/Library/bin/zstd.dll"
+          $<TARGET_FILE_DIR:rocky>
+  )
+
 else()
   llvm_map_components_to_libnames(llvm_libs core support native target mc asmprinter orcjit executionengine)
   target_link_libraries(rocky ${llvm_libs})
