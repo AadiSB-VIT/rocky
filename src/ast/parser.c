@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "rocky/ast/parser.h"
 
 /* ── Allocator ───────────────────────────────────────────── */
@@ -21,108 +22,90 @@ static Token peek(const Parser *p) {
 
 static Token advance(Parser *p) {
     Token t = p->tokens[p->pos];
-    if (t.kind != TOK_EOF) p->pos++;
+    if (t.type != TOKEN_EOF) p->pos++;
     return t;
 }
 
-static Token expect(Parser *p, TokenKind kind) {
+static Token expect(Parser *p, TokenType kind) {
     Token t = advance(p);
-    if (t.kind != kind) {
+    if (t.type != kind) {
         fprintf(stderr, "parse error at line %d col %d: "
                         "expected token %d, got %d\n",
-                t.line, t.col, kind, t.kind);
+                t.line, t.column, kind, t.type);
         exit(1);
     }
     return t;
 }
 
 /* ── Binding powers ──────────────────────────────────────── */
-/*
- * Each binary operator has a left BP and a right BP.
- * Right BP > left BP  → right-associative.
- * Right BP < left BP  → left-associative  (usual case).
- * Returning 0,0 means the token is not a binary infix operator.
- *
- * Precedence ladder (low → high):
- *   ||          4
- *   &&          6
- *   == !=       8
- *   < > <= >=  10
- *   | ^         12
- *   &           14   (lower than shifts so  a & b << 1  parses as  a & (b<<1))
- *   << >>       16
- *   + -         18
- *   * / %       20
- */
 
 typedef struct { int lbp; int rbp; } BP;
 
-static BP infix_bp(TokenKind k) {
+static BP infix_bp(TokenType k) {
     switch (k) {
-        case TOK_PIPEPIPE:  return (BP){ 4,  5  };
-        case TOK_AMPAMP:    return (BP){ 6,  7  };
-        case TOK_EQEQ:
-        case TOK_BANGEQ:    return (BP){ 8,  9  };
-        case TOK_LT:
-        case TOK_GT:
-        case TOK_LTEQ:
-        case TOK_GTEQ:      return (BP){ 10, 11 };
-        case TOK_PIPE:      return (BP){ 12, 13 };
-        case TOK_CARET:     return (BP){ 12, 13 };
-        case TOK_AMP:       return (BP){ 14, 15 };
-        case TOK_LSHIFT:
-        case TOK_RSHIFT:    return (BP){ 16, 17 };
-        case TOK_PLUS:
-        case TOK_MINUS:     return (BP){ 18, 19 };
-        case TOK_STAR:
-        case TOK_SLASH:
-        case TOK_PERCENT:   return (BP){ 20, 21 };
-        default:            return (BP){ 0,  0  };
+        case TOKEN_PIPEPIPE:  return (BP){ 4,  5  };
+        case TOKEN_AMPAMP:    return (BP){ 6,  7  };
+        case TOKEN_EQEQ:
+        case TOKEN_BANGEQ:    return (BP){ 8,  9  };
+        case TOKEN_LT:
+        case TOKEN_GT:
+        case TOKEN_LTEQ:
+        case TOKEN_GTEQ:      return (BP){ 10, 11 };
+        case TOKEN_PIPE:      return (BP){ 12, 13 };
+        case TOKEN_CARET:     return (BP){ 12, 13 };
+        case TOKEN_AMP:       return (BP){ 14, 15 };
+        case TOKEN_LSHIFT:
+        case TOKEN_RSHIFT:    return (BP){ 16, 17 };
+        case TOKEN_PLUS:
+        case TOKEN_MINUS:     return (BP){ 18, 19 };
+        case TOKEN_STAR:
+        case TOKEN_SLASH:
+        case TOKEN_PERCENT:   return (BP){ 20, 21 };
+        default:              return (BP){ 0,  0  };
     }
 }
 
-/* Prefix (nud) binding power — how tightly a unary op binds its operand */
-static int prefix_bp(TokenKind k) {
+static int prefix_bp(TokenType k) {
     switch (k) {
-        case TOK_MINUS:
-        case TOK_TILDE:
-        case TOK_BANG:  return 22;   /* tighter than any binary op */
-        default:        return -1;   /* not a prefix operator      */
+        case TOKEN_MINUS:
+        case TOKEN_TILDE:
+        case TOKEN_BANG:  return 22;
+        default:          return -1;
     }
 }
 
 /* ── Operator mapping ────────────────────────────────────── */
 
-static UnaryOp tok_to_unop(TokenKind k) {
+static UnaryOp tok_to_unop(TokenType k) {
     switch (k) {
-        case TOK_MINUS: return UNOP_NEG;
-        case TOK_TILDE: return UNOP_BITNOT;
-        case TOK_BANG:  return UNOP_LOGICNOT;
-        default:        exit(1);   /* unreachable */
+        case TOKEN_MINUS: return UNOP_NEG;
+        case TOKEN_TILDE: return UNOP_BITNOT;
+        case TOKEN_BANG:  return UNOP_LOGICNOT;
+        default:          exit(1);
     }
 }
 
-static BinaryOp tok_to_binop(TokenKind k) {
+static BinaryOp tok_to_binop(TokenType k) {
     switch (k) {
-        case TOK_PLUS:      return BINOP_ADD;
-        case TOK_MINUS:     return BINOP_SUB;
-        case TOK_STAR:      return BINOP_MUL;
-        case TOK_SLASH:     return BINOP_DIV;
-        case TOK_PERCENT:   return BINOP_MOD;
-        case TOK_AMP:       return BINOP_BAND;
-        case TOK_PIPE:      return BINOP_BOR;
-        case TOK_CARET:     return BINOP_BXOR;
-        case TOK_LSHIFT:    return BINOP_SHL;
-        case TOK_RSHIFT:    return BINOP_SHR;
-        case TOK_EQEQ:      return BINOP_EQ;
-        case TOK_BANGEQ:    return BINOP_NEQ;
-        case TOK_LT:        return BINOP_LT;
-        case TOK_GT:        return BINOP_GT;
-        case TOK_LTEQ:      return BINOP_LE;
-        case TOK_GTEQ:      return BINOP_GE;
-        case TOK_AMPAMP:    return BINOP_AND;
-        case TOK_PIPEPIPE:  return BINOP_OR;
-        default:            exit(1);   /* unreachable */
+        case TOKEN_PLUS:      return BINOP_ADD;
+        case TOKEN_MINUS:     return BINOP_SUB;
+        case TOKEN_STAR:      return BINOP_MUL;
+        case TOKEN_SLASH:     return BINOP_DIV;
+        case TOKEN_PERCENT:   return BINOP_MOD;
+        case TOKEN_AMP:       return BINOP_BAND;
+        case TOKEN_PIPE:      return BINOP_BOR;
+        case TOKEN_CARET:     return BINOP_BXOR;
+        case TOKEN_LSHIFT:    return BINOP_SHL;
+        case TOKEN_RSHIFT:    return BINOP_SHR;
+        case TOKEN_EQEQ:      return BINOP_EQ;
+        case TOKEN_BANGEQ:    return BINOP_NEQ;
+        case TOKEN_LT:        return BINOP_LT;
+        case TOKEN_GT:        return BINOP_GT;
+        case TOKEN_LTEQ:      return BINOP_LE;
+        case TOKEN_GTEQ:      return BINOP_GE;
+        case TOKEN_AMPAMP:    return BINOP_AND;
+        case TOKEN_PIPEPIPE:  return BINOP_OR;
+        default:              exit(1);
     }
 }
 
@@ -139,90 +122,68 @@ Expr *parse_expr(Parser *p, int min_bp) {
     Token  tok = advance(p);
     Expr  *lhs = NULL;
 
-    /* ── nud: prefix / atom ──────────────────────────────── */
-    switch (tok.kind) {
-    case TOK_INT: {
-        lhs = alloc_expr(p, EXPR_INT_LIT, tok);
-        lhs->as.ival = tok.value.ival;
-        break;
+    switch (tok.type) {
+        case TOKEN_INT: {
+            lhs = alloc_expr(p, EXPR_INT_LIT, tok);
+            lhs->as.ival = atoll(tok.start);
+            break;
+        }
+        case TOKEN_FLOAT: {
+            lhs = alloc_expr(p, EXPR_FLOAT_LIT, tok);
+            lhs->as.fval = atof(tok.start);
+            break;
+        }
+        case TOKEN_TRUE:
+        case TOKEN_FALSE: {
+            lhs = alloc_expr(p, EXPR_BOOL_LIT, tok);
+            lhs->as.bval = (tok.type == TOKEN_TRUE) ? 1 : 0;
+            break;
+        }
+        case TOKEN_IDENTIFIER: {
+            lhs = alloc_expr(p, EXPR_IDENT, tok);
+            lhs->as.ident.name = tok.start;
+            lhs->as.ident.len  = (int)tok.length;
+            break;
+        }
+        case TOKEN_LPAREN: {
+            lhs = parse_expr(p, 0);
+            expect(p, TOKEN_RPAREN);
+            break;
+        }
+        case TOKEN_MINUS:
+        case TOKEN_TILDE:
+        case TOKEN_BANG: {
+            int   bp      = prefix_bp(tok.type);
+            Expr *operand = parse_expr(p, bp);
+            lhs           = alloc_expr(p, EXPR_UNARY, tok);
+            lhs->as.unary.op      = tok_to_unop(tok.type);
+            lhs->as.unary.operand = operand;
+            break;
+        }
+        default: {
+            fprintf(stderr, "parse error at line %d col %d: "
+                            "unexpected token %d in expression\n",
+                    tok.line, tok.column, tok.type);
+            exit(1);
+        }
     }
-    case TOK_FLOAT: {
-        lhs = alloc_expr(p, EXPR_FLOAT_LIT, tok);
-        lhs->as.fval = tok.value.fval;
-        break;
-    }
-    case TOK_TRUE:
-    case TOK_FALSE: {
-        lhs = alloc_expr(p, EXPR_BOOL_LIT, tok);
-        lhs->as.bval = (tok.kind == TOK_TRUE) ? 1 : 0;
-        break;
-    }
-    case TOK_IDENT: {
-        lhs = alloc_expr(p, EXPR_IDENT, tok);
-        lhs->as.ident.name = tok.start;
-        lhs->as.ident.len  = tok.len;
-        break;
-    }
-    case TOK_LPAREN: {
-        lhs = parse_expr(p, 0);
-        expect(p, TOK_RPAREN);
-        break;
-    }
-    case TOK_MINUS:
-    case TOK_TILDE:
-    case TOK_BANG: {
-        int   bp      = prefix_bp(tok.kind);
-        Expr *operand = parse_expr(p, bp);
-        lhs           = alloc_expr(p, EXPR_UNARY, tok);
-        lhs->as.unary.op      = tok_to_unop(tok.kind);
-        lhs->as.unary.operand = operand;
-        break;
-    }
-    default: {
-        fprintf(stderr, "parse error at line %d col %d: "
-                        "unexpected token %d in expression\n",
-                tok.line, tok.col, tok.kind);
-        exit(1);
-    }
-}
-    /* ── led: infix / binary ─────────────────────────────── */
+
     for (;;) {
-        Token op  = peek(p);
-        BP    bp  = infix_bp(op.kind);
+        Token op = peek(p);
+        BP    bp = infix_bp(op.type);
 
         if (bp.lbp == 0 || bp.lbp <= min_bp)
             break;
 
-        advance(p);   /* consume the operator token */
+        advance(p);
 
         Expr *rhs = parse_expr(p, bp.rbp);
         Expr *bin = alloc_expr(p, EXPR_BINARY, op);
-        bin->as.binary.op  = tok_to_binop(op.kind);
+        bin->as.binary.op  = tok_to_binop(op.type);
         bin->as.binary.lhs = lhs;
         bin->as.binary.rhs = rhs;
         lhs = bin;
     }
 
     return lhs;
-}
-
-/* ── Cleanup ─────────────────────────────────────────────── */
-
-void expr_free(Expr *e) {
-    if (!e) return;
-    switch (e->kind) {
-        case EXPR_UNARY:
-            expr_free(e->as.unary.operand);
-            break;
-        case EXPR_BINARY:
-            expr_free(e->as.binary.lhs);
-            expr_free(e->as.binary.rhs);
-            break;
-        case EXPR_CAST:
-            expr_free(e->as.cast.operand);
-            break;
-        default:
-            break;
-    }
-    free(e);
 }

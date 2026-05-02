@@ -2,7 +2,7 @@
 #define AST_H
 
 #include <stdint.h>
-#include "rocky/ast/token.h"
+#include "rocky/lexer/token.h"
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -44,8 +44,8 @@ typedef enum {
 
 struct Expr {
     ExprKind kind;
-    Token    token;  /* the token that produced this node       */
-    TypeKind type;   /* VOID until filled by semantic pass      */
+    Token    token;
+    TypeKind type;
 
     union {
         int64_t  ival;
@@ -75,4 +75,4 @@ struct Expr {
     } as;
 };
 
-#endif /* AST_H */
+#endif

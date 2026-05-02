@@ -3,17 +3,15 @@
 
 #include "rocky/ast/ast.h"
 #include "rocky/arena.h"
-#include "rocky/ast/token.h"
 
 typedef struct {
-    const Token *tokens;   /* flat token array from lexer  */
-    int          pos;      /* index of current token       */
-    int          len;      /* total number of tokens       */
+    const Token *tokens;
+    int          pos;
+    int          len;
     Arena       *arena;
 } Parser;
 
-void  parser_init  (Parser *p, const Token *tokens, int len, Arena *arena);
-Expr *parse_expr   (Parser *p, int min_bp);
-void  expr_free    (Expr *e);
+void  parser_init (Parser *p, const Token *tokens, int len, Arena *arena);
+Expr *parse_expr  (Parser *p, int min_bp);
 
-#endif /* PARSER_H */
+#endif

@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "rocky/ast/parser.h"
 
 /* ── pretty-printer ──────────────────────────────────────── */
 
-static void pretty_print_expr(const Expr *e, int depth) {
+static void print_expr(const Expr *e, int depth) {
     for (int i = 0; i < depth; i++) printf("  ");
 
     switch (e->kind) {
@@ -28,7 +29,7 @@ static void pretty_print_expr(const Expr *e, int depth) {
                 case UNOP_LOGICNOT: op = "!";  break;
             }
             printf("UNARY(%s)\n", op);
-            pretty_print_expr(e->as.unary.operand, depth + 1);
+            print_expr(e->as.unary.operand, depth + 1);
             break;
         }
         case EXPR_BINARY: {
@@ -54,13 +55,13 @@ static void pretty_print_expr(const Expr *e, int depth) {
                 case BINOP_OR:   op = "||";  break;
             }
             printf("BINARY(%s)\n", op);
-            pretty_print_expr(e->as.binary.lhs, depth + 1);
-            pretty_print_expr(e->as.binary.rhs, depth + 1);
+            print_expr(e->as.binary.lhs, depth + 1);
+            print_expr(e->as.binary.rhs, depth + 1);
             break;
         }
         case EXPR_CAST:
             printf("CAST\n");
-            pretty_print_expr(e->as.cast.operand, depth + 1);
+            print_expr(e->as.cast.operand, depth + 1);
             break;
     }
 }
@@ -68,53 +69,58 @@ static void pretty_print_expr(const Expr *e, int depth) {
 /* ── token builder helpers ───────────────────────────────── */
 
 static Token tok_int(long long v) {
+    static char buf[32];
+    snprintf(buf, sizeof(buf), "%lld", v);
     Token t = {0};
-    t.kind       = TOK_INT;
-    t.value.ival = v;
-    t.line = 1; t.col = 1;
+    t.type   = TOKEN_INT;
+    t.start  = buf;
+    t.length = strlen(buf);
+    t.line = 1; t.column = 1;
     return t;
 }
 
 static Token tok_float(double v) {
+    static char buf[32];
+    snprintf(buf, sizeof(buf), "%g", v);
     Token t = {0};
-    t.kind       = TOK_FLOAT;
-    t.value.fval = v;
-    t.line = 1; t.col = 1;
+    t.type   = TOKEN_FLOAT;
+    t.start  = buf;
+    t.length = strlen(buf);
+    t.line = 1; t.column = 1;
     return t;
 }
 
-static Token tok_op(TokenKind kind) {
+static Token tok_op(TokenType type) {
     Token t = {0};
-    t.kind = kind;
-    t.line = 1; t.col = 1;
+    t.type   = type;
+    t.line   = 1; t.column = 1;
     return t;
 }
 
-static Token tok_ident(const char *name, int len) {
+static Token tok_ident(const char *name, size_t len) {
     Token t = {0};
-    t.kind  = TOK_IDENT;
-    t.start = name;
-    t.len   = len;
-    t.line  = 1; t.col = 1;
+    t.type   = TOKEN_IDENTIFIER;
+    t.start  = name;
+    t.length = len;
+    t.line   = 1; t.column = 1;
     return t;
 }
 
 static Token tok_eof(void) {
     Token t = {0};
-    t.kind = TOK_EOF;
+    t.type = TOKEN_EOF;
     return t;
 }
 
 /* ── run one test ────────────────────────────────────────── */
 
-static void run(const char *label, Token *tokens, int len,
-                Arena *arena) {
+static void run(const char *label, Token *tokens, int len, Arena *arena) {
     printf("=== %s ===\n", label);
     Parser p;
     parser_init(&p, tokens, len, arena);
     Expr *tree = parse_expr(&p, 0);
-    pretty_print_expr(tree, 0);
-    arena->used = 0;   /* reset for next test */
+    print_expr(tree, 0);
+    arena->used = 0;
     printf("\n");
 }
 
@@ -124,63 +130,57 @@ int main(void) {
     Arena arena;
     arena_init(&arena, 4096);
 
-    /* 1 + 2 * 3   →   +(1, *(2, 3))  */
     {
         Token toks[] = {
-            tok_int(1), tok_op(TOK_PLUS),
-            tok_int(2), tok_op(TOK_STAR),
+            tok_int(1), tok_op(TOKEN_PLUS),
+            tok_int(2), tok_op(TOKEN_STAR),
             tok_int(3), tok_eof()
         };
         run("1 + 2 * 3", toks, 6, &arena);
     }
 
-    /* -~x   →   -(~(x))  */
     {
         static const char name[] = "x";
         Token toks[] = {
-            tok_op(TOK_MINUS), tok_op(TOK_TILDE),
+            tok_op(TOKEN_MINUS), tok_op(TOKEN_TILDE),
             tok_ident(name, 1), tok_eof()
         };
         run("-~x", toks, 4, &arena);
     }
 
-    /* a & b << 1   →   &(a, <<(b, 1))  — & binds looser than << */
     {
         static const char a[] = "a", b[] = "b";
         Token toks[] = {
-            tok_ident(a, 1), tok_op(TOK_AMP),
-            tok_ident(b, 1), tok_op(TOK_LSHIFT),
+            tok_ident(a, 1), tok_op(TOKEN_AMP),
+            tok_ident(b, 1), tok_op(TOKEN_LSHIFT),
             tok_int(1),      tok_eof()
         };
         run("a & b << 1", toks, 6, &arena);
     }
 
-    /* (1 + 2) * 3   →   *(+(1,2), 3)  */
     {
         Token toks[] = {
-            tok_op(TOK_LPAREN),
-            tok_int(1), tok_op(TOK_PLUS), tok_int(2),
-            tok_op(TOK_RPAREN),
-            tok_op(TOK_STAR), tok_int(3), tok_eof()
+            tok_op(TOKEN_LPAREN),
+            tok_int(1), tok_op(TOKEN_PLUS), tok_int(2),
+            tok_op(TOKEN_RPAREN),
+            tok_op(TOKEN_STAR), tok_int(3), tok_eof()
         };
         run("(1 + 2) * 3", toks, 8, &arena);
     }
 
-    /* 1.5 + 2.5   →   +(1.5, 2.5)  */
     {
         Token toks[] = {
-            tok_float(1.5), tok_op(TOK_PLUS),
+            tok_float(1.5), tok_op(TOKEN_PLUS),
             tok_float(2.5), tok_eof()
         };
         run("1.5 + 2.5", toks, 4, &arena);
     }
 
-    /* a || b && c   →   ||(a, &&(b, c))  — && binds tighter */
     {
         static const char a[] = "a", b[] = "b", c[] = "c";
         Token toks[] = {
-            tok_ident(a, 1), tok_op(TOK_PIPEPIPE),
-            tok_ident(b, 1), tok_op(TOK_AMPAMP),
+            tok_ident(a, 1), tok_op(TOKEN_PIPEPIPE),
+            tok_ident(b, 1), tok_op(TOKEN_AMPAMP),
             tok_ident(c, 1), tok_eof()
         };
         run("a || b && c", toks, 6, &arena);
