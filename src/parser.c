@@ -26,7 +26,7 @@ static Token advance(Parser *p) {
     return t;
 }
 
-static Token expect(Parser *p, TokenType kind) {
+static Token expect(Parser *p, TokenKind kind) {
     Token t = advance(p);
     if (t.type != kind) {
         fprintf(stderr, "parse error at line %d col %d: "
@@ -41,7 +41,7 @@ static Token expect(Parser *p, TokenType kind) {
 
 typedef struct { int lbp; int rbp; } BP;
 
-static BP infix_bp(TokenType k) {
+static BP infix_bp(TokenKind k) {
     switch (k) {
         case TOKEN_PIPEPIPE:  return (BP){ 4,  5  };
         case TOKEN_AMPAMP:    return (BP){ 6,  7  };
@@ -65,7 +65,7 @@ static BP infix_bp(TokenType k) {
     }
 }
 
-static int prefix_bp(TokenType k) {
+static int prefix_bp(TokenKind k) {
     switch (k) {
         case TOKEN_MINUS:
         case TOKEN_TILDE:
@@ -76,7 +76,7 @@ static int prefix_bp(TokenType k) {
 
 /* ── Operator mapping ────────────────────────────────────── */
 
-static UnaryOp tok_to_unop(TokenType k) {
+static UnaryOp tok_to_unop(TokenKind k) {
     switch (k) {
         case TOKEN_MINUS: return UNOP_NEG;
         case TOKEN_TILDE: return UNOP_BITNOT;
@@ -85,7 +85,7 @@ static UnaryOp tok_to_unop(TokenType k) {
     }
 }
 
-static BinaryOp tok_to_binop(TokenType k) {
+static BinaryOp tok_to_binop(TokenKind k) {
     switch (k) {
         case TOKEN_PLUS:      return BINOP_ADD;
         case TOKEN_MINUS:     return BINOP_SUB;
