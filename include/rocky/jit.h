@@ -11,6 +11,7 @@
 #include <llvm-c/LLJIT.h>
 
 #include <stdbool.h>
+#include <rocky/parser/ast.h>
 
 typedef void void_func(void);
 

@@ -1,13 +1,29 @@
 #include <rocky/debug.h>
 #include <stdio.h>
 #include <inttypes.h>
-#include <unistd.h>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+static int use_color(void) {
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut == INVALID_HANDLE_VALUE) return 0;
+    DWORD dwMode = 0;
+    if (!GetConsoleMode(hOut, &dwMode)) return 0;
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    return SetConsoleMode(hOut, dwMode);
+}
+#else
+#include <unistd.h>
 static int use_color(void) {
     return isatty(fileno(stdout));
 }
+#endif
 
-const char* tokenTypeStr(TokenType type) {
+
+#include <rocky/debug.h>
+
+const char* token_type_str(TokenKind type) {
     switch (type) {
         /*  Literals  */
         case TOKEN_INT: return "INT";
@@ -23,11 +39,11 @@ const char* tokenTypeStr(TokenType type) {
         case TOKEN_SLASH: return "SLASH";
         case TOKEN_PERCENT: return "PERCENT";
         case TOKEN_EQUALS: return "EQUALS";
-
+        
         /*  Parentheses  */
         case TOKEN_LPAREN: return "(";
         case TOKEN_RPAREN: return ")";
-
+        
         /*  Special  */
         case TOKEN_EOF: return "EOF";
         case TOKEN_INVALID: return "INVALID";
@@ -35,7 +51,7 @@ const char* tokenTypeStr(TokenType type) {
     }
 }
 
-void printToken(Token* token, unsigned int flags) {
+void print_token(Token* token, TokenPrintFlags flags) {
     //Null guard
     if (!token) {
         printf("[NULL TOKEN]\n");
@@ -44,17 +60,17 @@ void printToken(Token* token, unsigned int flags) {
     
     int color = use_color();
     
-    const char *cyan   = color ? "\e[34m" : "";
-    const char *green  = color ? "\e[32m" : "";
-    const char *yellow = color ? "\e[33m" : "";
-    const char *red    = color ? "\e[35m" : "";
-    const char *reset  = color ? "\e[0m"  : "";
+    const char *cyan   = color ? "\x1b[34m" : "";
+    const char *green  = color ? "\x1b[32m" : "";
+    const char *yellow = color ? "\x1b[33m" : "";
+    const char *red    = color ? "\x1b[35m" : "";
+    const char *reset  = color ? "\x1b[0m"  : "";
     
-    if (flags & KIND)
+    if (flags & TOK_PRINT_FLAG_KIND)
         printf("%s%-15s%s   ",
-               cyan, tokenTypeStr(token->type), reset);
+               cyan, token_type_str(token->type), reset);
     
-    if (flags & LEXEME) {
+    if (flags & TOK_PRINT_FLAG_LEXEME) {
         if (token->start) {
             printf("%s%-15.*s%s   ",
                    green, (int)token->length, token->start, reset);
@@ -64,18 +80,18 @@ void printToken(Token* token, unsigned int flags) {
         }
     }
     
-    if (flags & LINE)
+    if (flags & TOK_PRINT_FLAG_LINE)
         printf("%s%-5d%s   ",
                yellow, token->line, reset);
     
-    if (flags & COL)
+    if (flags & TOK_PRINT_FLAG_COL)
         printf("%s%-5d%s   ",
                red, token->column, reset);
     
     printf("\n");
 }
 
-const char* unaryOpStr(UnaryOp op) {
+const char* unary_op_str(UnaryOp op) {
     switch (op) {
         case UNOP_NEG: return "-";
         case UNOP_BITNOT: return "~";
@@ -84,7 +100,7 @@ const char* unaryOpStr(UnaryOp op) {
     }
 }
 
-const char* typeStr(TypeKind t) {
+const char* datatype_str(TypeKind t) {
     switch (t) {
         case TYPE_INT: return "int";
         case TYPE_FLOAT: return "float";
@@ -94,7 +110,7 @@ const char* typeStr(TypeKind t) {
     }
 }
 
-const char* binaryOpStr(BinaryOp op) {
+const char* binary_op_str(BinaryOp op) {
     switch (op) {
         
         /* arithmetic */
@@ -143,11 +159,11 @@ const char* binaryOpStr(BinaryOp op) {
  *  - depth: current depth in the AST
  *  - sibling: bitmask tracking which ancestor levels were last children
  */
-void printChildren(const Expr** children, int count, int depth, int sibling) {
+void print_children(const Expr** children, int count, int depth, int sibling) {
     for (int i = 0; i < count; i++) {
         int isLast = (i == count - 1);
         int newMask = sibling | (isLast << depth);
-        printExpr(children[i], depth + 1, isLast, newMask);
+        print_expr(children[i], depth + 1, isLast, newMask);
     }
 }
 
@@ -160,7 +176,7 @@ void printChildren(const Expr** children, int count, int depth, int sibling) {
  * If a bit is set, we print spaces instead of vertical lines (│),
  * ensuring correct tree visualization across multiple branches.
  */
-void printExpr(const Expr* expr, int depth, int isLast, int sibling) {
+void print_expr(const Expr* expr, int depth, int isLast, int sibling) {
     //Null guard
     if (!expr) {
         printf("[NULL EXPR]\n");
@@ -178,7 +194,7 @@ void printExpr(const Expr* expr, int depth, int isLast, int sibling) {
     for (int i = 0; i < depth - 1; i++) {
         printf((sibling & ( 1 << i)) ? "    ": "│   ");
     }
-
+    
     /*
      * Selects the appropriate branch symbol:
      *  - "├──" for intermediate nodes
@@ -189,39 +205,39 @@ void printExpr(const Expr* expr, int depth, int isLast, int sibling) {
     
     switch(expr->kind) {
         case EXPR_INT_LIT:
-            printf("%ld\n", expr->as.ival);
-            break;
+        printf("%lld\n", expr->as.ival);
+        break;
         
         case EXPR_FLOAT_LIT:
-            printf("%f\n", expr->as.fval);
-            break;
+        printf("%f\n", expr->as.fval);
+        break;
         
         case EXPR_BOOL_LIT:
-            printf("%s\n", expr->as.bval ? "true" : "false");
-            break;
+        printf("%s\n", expr->as.bval ? "true" : "false");
+        break;
         
         case EXPR_IDENT:
-            printf("%s\n", expr->as.ident.name);
-            break;
-
+        printf("%s\n", expr->as.ident.name);
+        break;
+        
         case EXPR_UNARY:
-            printf("%s\n", unaryOpStr(expr->as.unary.op));
-            printExpr(expr->as.unary.operand, depth + 1, 1, sibling | (1 << depth));
-            break;
+        printf("%s\n", unary_op_str(expr->as.unary.op));
+        print_expr(expr->as.unary.operand, depth + 1, 1, sibling | (1 << depth));
+        break;
         
         case EXPR_BINARY:
-            printf("%s\n", binaryOpStr(expr->as.binary.op));
-            const Expr* children[] = {expr->as.binary.lhs, expr->as.binary.rhs};
-            printChildren(children, 2, depth, sibling);
-            break;
+        printf("%s\n", binary_op_str(expr->as.binary.op));
+        const Expr* children[] = {expr->as.binary.lhs, expr->as.binary.rhs};
+        print_children(children, 2, depth, sibling);
+        break;
         
         case EXPR_CAST:
-            printf("%s\n", typeStr(expr->as.cast.to));
-            printExpr(expr->as.cast.operand, depth + 1, 1, sibling | (1 << depth));
-            break;
+        printf("%s\n", datatype_str(expr->as.cast.to));
+        print_expr(expr->as.cast.operand, depth + 1, 1, sibling | (1 << depth));
+        break;
         
         default:
-            printf("Invalid EXPR");
-            break;
+        printf("Invalid EXPR");
+        break;
     }
 }

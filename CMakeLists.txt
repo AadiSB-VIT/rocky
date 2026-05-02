@@ -68,7 +68,7 @@ foreach(test_src ${TEST_SOURCES})
 
     get_filename_component(test_dir ${test_src} DIRECTORY)
     file(RELATIVE_PATH rel_path_from_tests ${CMAKE_SOURCE_DIR}/tests ${test_dir})
-    
+
     if(rel_path_from_tests STREQUAL "" OR rel_path_from_tests STREQUAL ".")
         set(test_name "tests_${test_file}")
         set(test_label "${test_file}")

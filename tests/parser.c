@@ -38,7 +38,7 @@ static Token tok_float(double v) {
     return t;
 }
 
-static Token tok_op(TokenType type) {
+static Token tok_op(TokenKind type) {
     Token t = {0};
     t.type   = type;
     t.line   = 1; t.column = 1;
@@ -110,7 +110,7 @@ void test_parser_unary(void) {
 }
 
 void test_parser_binary_arithmetic(void) {
-    TokenType ops[] = { TOKEN_PLUS, TOKEN_MINUS, TOKEN_STAR, TOKEN_SLASH, TOKEN_PERCENT };
+    TokenKind ops[] = { TOKEN_PLUS, TOKEN_MINUS, TOKEN_STAR, TOKEN_SLASH, TOKEN_PERCENT };
     BinaryOp bops[] = { BINOP_ADD, BINOP_SUB, BINOP_MUL, BINOP_DIV, BINOP_MOD };
 
     for (int i = 0; i < 5; i++) {
@@ -122,7 +122,7 @@ void test_parser_binary_arithmetic(void) {
 }
 
 void test_parser_binary_comparison(void) {
-    TokenType ops[] = { TOKEN_EQEQ, TOKEN_BANGEQ, TOKEN_LT, TOKEN_GT, TOKEN_LTEQ, TOKEN_GTEQ };
+    TokenKind ops[] = { TOKEN_EQEQ, TOKEN_BANGEQ, TOKEN_LT, TOKEN_GT, TOKEN_LTEQ, TOKEN_GTEQ };
     BinaryOp bops[] = { BINOP_EQ, BINOP_NEQ, BINOP_LT, BINOP_GT, BINOP_LE, BINOP_GE };
 
     for (int i = 0; i < 6; i++) {
@@ -134,7 +134,7 @@ void test_parser_binary_comparison(void) {
 }
 
 void test_parser_binary_bitwise(void) {
-    TokenType ops[] = { TOKEN_AMP, TOKEN_PIPE, TOKEN_CARET, TOKEN_LSHIFT, TOKEN_RSHIFT };
+    TokenKind ops[] = { TOKEN_AMP, TOKEN_PIPE, TOKEN_CARET, TOKEN_LSHIFT, TOKEN_RSHIFT };
     BinaryOp bops[] = { BINOP_BAND, BINOP_BOR, BINOP_BXOR, BINOP_SHL, BINOP_SHR };
 
     for (int i = 0; i < 5; i++) {

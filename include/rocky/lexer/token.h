@@ -52,11 +52,11 @@ typedef enum {
     TOKEN_SEMICOLON,
     TOKEN_EOF,
     TOKEN_INVALID,
-} TokenType;
+} TokenKind;
 
 /* Lexeme is represented as a slice (start pointer+length) into original source buffer */
 typedef struct {
-    TokenType type;     // type of token
+    TokenKind type;     // type of token
 
     const char *start;  // pointer to first character of lexeme
     size_t length;      // length of lexeme
@@ -66,4 +66,4 @@ typedef struct {
 
 } Token;
 
-#endif 
+#endif
