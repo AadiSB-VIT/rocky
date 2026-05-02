@@ -205,7 +205,7 @@ void print_expr(const Expr* expr, int depth, int isLast, int sibling) {
     
     switch(expr->kind) {
         case EXPR_INT_LIT:
-        printf("%lld\n", expr->as.ival);
+        printf("%" PRId64 "\n", expr->as.ival);
         break;
         
         case EXPR_FLOAT_LIT:
