@@ -58,6 +58,9 @@ typedef enum {
     /* grouping */
     TOKEN_LPAREN,     // (
     TOKEN_RPAREN,     // )
+    TOKEN_LBRACE,     // {
+    TOKEN_RBRACE,     // }
+    TOKEN_COMMA,      // ,
 
     /* special */
     TOKEN_SEMICOLON,  // ;
