@@ -14,6 +14,15 @@ typedef enum {
     TOKEN_IDENTIFIER, // identifier
     TOKEN_TRUE,       // true
     TOKEN_FALSE,      // false
+	
+    /* keywords */
+    TOKEN_IF,         /* if */
+    TOKEN_ELSE,       /* else */
+    TOKEN_WHILE,      /* while */
+    TOKEN_FOR,        /* for */
+    TOKEN_RETURN,     /* return */
+    TOKEN_BREAK,      /* break */
+    TOKEN_CONTINUE,   /* continue */
 
     /* arithmetic */
     TOKEN_PLUS,       // +
